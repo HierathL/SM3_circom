@@ -1,0 +1,147 @@
+//    signal input hin[256];
+//    signal input inp[512];
+//    signal output out[256];
+
+pragma circom 2.0.0;
+
+
+function lrot(x, n) {
+    return ((x << n) | (x >> (32-n))) & 0xFFFFFFFF;
+}
+
+function ff00(x,y,z) {
+    return x ^ y ^ z;
+}
+
+function ff16(x,y,z) {
+    return (x&y) ^ (x&z) ^ (y&z);
+}
+
+function gg00(x,y,z){
+    return x ^ y ^ z;
+}
+
+function gg16(x, y, z) {
+    return (x & y) ^ ((0xFFFFFFFF ^x) & z);
+}
+
+function p0(x) {
+    return x ^ lrot(x,9) ^ lrot(x,17);
+}
+
+function p1(x) {
+    return x ^ lrot(x,15) ^ lrot(x,23);
+}
+
+//压缩函数
+function sm3compression(hin, inp) {
+    var H[8];
+    var a;
+    var b;
+    var c;
+    var d;
+    var e;
+    var f;
+    var g;
+    var h;
+    var out[256];
+
+    //Tj<<j常数
+    var smk[64] = [
+        0x79cc4519, 0xf3988a32, 0xe7311465, 0xce6228cb,
+        0x9cc45197, 0x3988a32f, 0x7311465e, 0xe6228cbc,
+        0xcc451979, 0x988a32f3, 0x311465e7, 0x6228cbce,
+        0xc451979c, 0x88a32f39, 0x11465e73, 0x228cbce6,
+        0x9d8a7a87, 0x3b14f50f, 0x7629ea1e, 0xec53d43c,
+        0xd8a7a879, 0xb14f50f3, 0x629ea1e7, 0xc53d43ce,
+        0x8a7a879d, 0x14f50f3b, 0x29ea1e76, 0x53d43cec,
+        0xa7a879d8, 0x4f50f3b1, 0x9ea1e762, 0x3d43cec5,
+        0x7a879d8a, 0xf50f3b14, 0xea1e7629, 0xd43cec53,
+        0xa879d8a7, 0x50f3b14f, 0xa1e7629e, 0x43cec53d,
+        0x879d8a7a, 0x0f3b14f5, 0x1e7629ea, 0x3cec53d4,
+        0x79d8a7a8, 0xf3b14f50, 0xe7629ea1, 0xcec53d43,
+        0x9d8a7a87, 0x3b14f50f, 0x7629ea1e, 0xec53d43c,
+        0xd8a7a879, 0xb14f50f3, 0x629ea1e7, 0xc53d43ce,
+        0x8a7a879d, 0x14f50f3b, 0x29ea1e76, 0x53d43cec,
+        0xa7a879d8, 0x4f50f3b1, 0x9ea1e762, 0x3d43cec5
+        ];
+
+    //解析初始IV,大端序    
+    for (var i=0; i<8; i++) {
+        H[i] = 0;
+        for (var j=0; j<32; j++) {
+            H[i] += hin[i*32+31-j] << j;
+        }
+    }
+
+    a=H[0];
+    b=H[1];
+    c=H[2];
+    d=H[3];
+    e=H[4];
+    f=H[5];
+    g=H[6];
+    h=H[7];
+    var w1[64];
+    var w[68];
+    var SS1;
+    var SS2;
+    var TT1;
+    var TT2;
+
+    //解析 inp 512 位数据块
+    //inp[512] 存储的是 512 位的 SHA-256 数据块，每 32 位解析成 w[i]
+    for (var i = 0;i<68;i++){
+        if (i<16) {
+            w[i]=0;
+            for (var j=0; j<32; j++) {
+                w[i] +=  inp[i*32+31-j]<<j;
+            }
+            
+        } else {
+            w[i] = p1(w[i-16] ^ w[i-9] ^ lrot(w[i-3],15)) ^ lrot(w[i-13],7) ^ w[i-6];
+        }
+        //测试
+        //log("w",i,w[i]);    
+    }
+
+    for (var i=0; i<64; i++) {
+        w1[i]=w[i] ^ w[i+4];
+
+        SS1 = lrot((lrot(a,12) + e + smk[i]) & 0xFFFFFFFF,7);
+        SS2 = (SS1 ^ lrot(a,12)) & 0xFFFFFFFF;
+
+        if(i<16){
+            TT1 = (ff00(a,b,c) + d + SS2 + w1[i]) & 0xFFFFFFFF;
+            TT2 = (gg00(e,f,g) + h + SS1 + w[i]) & 0xFFFFFFFF;
+        }else{
+            TT1 = (ff16(a,b,c) + d + SS2 + w1[i]) & 0xFFFFFFFF;
+            TT2 = (gg16(e,f,g) + h + SS1 + w[i]) & 0xFFFFFFFF;
+        }
+
+        h=g;
+        g=lrot(f,19);
+        f=e;
+        e=p0(TT2);
+        d=c;
+        c=lrot(b,9);
+        b=a;
+        a=TT1;
+    }
+    H[0] = H[0] ^ a;
+    H[1] = H[1] ^ b;
+    H[2] = H[2] ^ c;
+    H[3] = H[3] ^ d;
+    H[4] = H[4] ^ e;
+    H[5] = H[5] ^ f;
+    H[6] = H[6] ^ g;
+    H[7] = H[7] ^ h;
+
+    //H[8] 转换回 out[256]，作为 新的 SHA-256 哈希状态输出
+    for (var i=0; i<8; i++) {
+        for (var j=0; j<32; j++) {
+            out[i*32+31-j] = (H[i] >> j) & 1;
+        }
+    }
+    return out;
+}
