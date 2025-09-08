@@ -12,7 +12,8 @@
 
 电路设计过程包括circom语言设计，circom编译，snarkjs生成证明和验证，环境配置和工具使用都十分友好，基本都提供了简明教程和示例。
 
-circom环境配置和编译参考https://docs.circom.io/getting-started/installation/ snarkjs使用可以参考https://github.com/iden3/snarkjs
+circom环境配置和编译参考https://docs.circom.io/getting-started/installation/ 
+snarkjs使用可以参考https://github.com/iden3/snarkjs
 
 ## 零知识证明 
 
