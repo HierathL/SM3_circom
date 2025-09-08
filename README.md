@@ -4,7 +4,7 @@
 
 ## 描述 
 
-本科毕业论文，零知识证明领域的一个国密化尝试。因为circomlib库（https://github.com/iden3/circomlib）提供了SHA256算法作为电路约束的circom实现电路。本项目实现了基于SM3算法的零知识证明电路的设计
+本科毕业论文，零知识证明领域的一个国密化尝试。因为circomlib库 https://github.com/iden3/circomlib 提供了SHA256算法作为电路约束的circom实现电路。本项目实现了基于SM3算法的零知识证明电路的设计
 
 ## 电路编译 
 
